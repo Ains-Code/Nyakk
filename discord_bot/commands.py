@@ -33,10 +33,8 @@ async def add_task(channel_id: int, link: str, progress: int = 0) -> tuple[bool,
 
     title, progress = await _title_and_progress(link, progress)
     task_name = title or link
-
     if not state.add_task(channel_id, task_name, link=link, display=title, progress=progress):
         return False, f"Task **{task_name}** already exists. Use `/update` or `/edit` instead."
-
     label = state.get_progress_label(channel_id)
     progress_info = f" ({label} {progress})" if progress > 0 else ""
     return True, f"Added **{task_name}**{progress_info}."

@@ -7,10 +7,9 @@ Expected formats (channel_name is always required first, since Messenger has
 no concept of "current channel" the way Discord slash commands do):
     /add_channel <channel_name>
     /add <channel_name> <link> [progress]
-    /update <channel_name> "<task_name>" [link] [progress]
-    /update <channel_name> <link> [progress]
-    /done <channel_name> "<task_name>"
-    /undone <channel_name> "<task_name>"
+    /update <channel_name> <task_name> [link]
+    /done <channel_name> <task_name>
+    /undone <channel_name> <task_name>
     /recommend <channel_name>
     /ask <channel_name> <question>
 """
@@ -52,6 +51,14 @@ def parse(text: str) -> Optional[ParsedCommand]:
         return ParsedCommand(command, channel_name=args[0])
 
     if command == "add":
+        if len(args) < 2:
+            return None
+        progress = 0
+        if len(args) > 2 and args[2].isdigit():
+            progress = int(args[2])
+        return ParsedCommand(command, channel_name=args[0], link=args[1], progress=progress)
+
+    if command == "update":
         if len(args) < 2:
             return None
         progress = 0

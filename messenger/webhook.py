@@ -82,9 +82,9 @@ async def handle_text_command(sender: str, text: str):
             "Hindi ko naintindihan yan. Subukan mo:\n"
             "/add_channel <name>\n"
             "/add <channel> <link> [progress]\n"
-            "/update <channel> \"<task>\" [link] [progress]\n"
-            "/done <channel> \"<task>\"\n"
-            "/undone <channel> \"<task>\"\n"
+            "/update <channel> <task> [link]\n"
+            "/done <channel> <task>\n"
+            "/undone <channel> <task>\n"
             "/recommend <channel>\n"
             "/ask <channel> <question>",
         )
@@ -106,7 +106,7 @@ async def handle_text_command(sender: str, text: str):
     if parsed.command == "add":
         ok, reply = await cmd.add_task(channel_id, parsed.link, parsed.progress)
     elif parsed.command == "update":
-        ok, reply = await cmd.update_task(channel_id, parsed.task_name, parsed.link, parsed.progress)
+        ok, reply = await cmd.update_task(channel_id, parsed.task_name, parsed.link)
     elif parsed.command == "done":
         ok, reply = await cmd.mark_done(channel_id, parsed.task_name, True)
     elif parsed.command == "undone":
