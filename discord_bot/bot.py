@@ -11,7 +11,7 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 
-# ── Autocomplete ─────────────────────────────────────────────────────────────
+# ── Autocomplete ──────────────────────────────────────────────────────────[...]
 
 async def channel_name_autocomplete(interaction: discord.Interaction, current: str):
     return [
@@ -36,7 +36,7 @@ async def task_name_autocomplete(interaction: discord.Interaction, current: str)
     ][:25]
 
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
+# ── Helpers ───────────────────────────────────────────────────────────……[...]
 
 async def refresh_tracker_message(channel_id: int):
     channel = bot.get_channel(channel_id)
@@ -67,7 +67,7 @@ async def log_update(text: str):
         await log_channel.send(text)
 
 
-# ── State rebuild ─────────────────────────────────────────────────────────────
+# ── State rebuild ─────────────────────────────────────────────────────────……[...]
 
 async def rebuild_state_from_discord():
     if not config.DISCORD_GUILD_ID:
@@ -104,7 +104,7 @@ async def rebuild_state_from_discord():
     print(f"[discord] State rebuild complete — {recovered} channel(s) recovered.")
 
 
-# ── Events ────────────────────────────────────────────────────────────────────
+# ── Events ───────────────────────────────────────────────────────────……[...]
 
 @bot.event
 async def on_ready():
@@ -114,7 +114,7 @@ async def on_ready():
     print("[discord] Slash commands synced.")
 
 
-# ── Slash commands ────────────────────────────────────────────────────────────
+# ── Slash commands ─────────────────────────────────────────────────────────[...]
 
 @bot.tree.command(name="add_channel", description="Create and register a new tracker channel")
 @app_commands.describe(task_category_name="Name for the new tracker channel")
@@ -129,20 +129,35 @@ async def add_channel(interaction: discord.Interaction, task_category_name: str)
     await log_update(f"📁 New tracker channel: **{task_category_name}**")
 
 
-@bot.tree.command(name="add", description="Add a new task to a tracker channel")
-@app_commands.describe(channel_name="Tracker channel", task="Task name", link="Optional link")
+@bot.tree.command(name="add", description="Add a new task with chapter/episode number to a tracker channel")
+@app_commands.describe(channel_name="Tracker channel", task="Task name", progress="Chapter, episode, or amount number", link="Optional link")
 @app_commands.autocomplete(channel_name=channel_name_autocomplete)
-async def add(interaction: discord.Interaction, channel_name: str, task: str, link: str = None):
+async def add(interaction: discord.Interaction, channel_name: str, task: str, progress: int = 0, link: str = None):
     channel_id = state.find_channel_id_by_name(channel_name)
     if not channel_id:
         await interaction.response.send_message("❌ Channel not found.", ephemeral=True)
         return
     await interaction.response.defer()
-    ok, msg = await cmd.add_task(channel_id, task, link)
+    ok, msg = await cmd.add_task(channel_id, task, progress, link)
     await interaction.followup.send(("✅ " if ok else "❌ ") + msg)
     if ok:
         await refresh_tracker_message(channel_id)
         await log_update(f"➕ **{task}** added to #{channel_name}")
+
+
+@bot.tree.command(name="remove", description="Remove a task from a tracker channel")
+@app_commands.describe(channel_name="Tracker channel", task_name="Task to remove")
+@app_commands.autocomplete(channel_name=channel_name_autocomplete, task_name=task_name_autocomplete)
+async def remove(interaction: discord.Interaction, channel_name: str, task_name: str):
+    channel_id = state.find_channel_id_by_name(channel_name)
+    if not channel_id:
+        await interaction.response.send_message("❌ Channel not found.", ephemeral=True)
+        return
+    ok, msg = await cmd.remove_task(channel_id, task_name)
+    await interaction.response.send_message(("✅ " if ok else "❌ ") + msg)
+    if ok:
+        await refresh_tracker_message(channel_id)
+        await log_update(f"🗑️ {msg} in #{channel_name}")
 
 
 @bot.tree.command(name="edit", description="Edit a task's name, link, or chapter/episode progress")
