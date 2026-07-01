@@ -28,10 +28,14 @@ def build_tracker_embed(channel_name: str, tasks: dict, progress_label: str = "P
 
             # Build task line - display title first, then task name as subtitle
             if link and display:
-    if display == task_name:
-        line = f"{emoji} **[{display}]({link})**"   # ← no more duplicate
-    else:
-        line = f"{emoji} **[{display}]({link})** — {task_name}"
+                if display == task_name:
+                    line = f"{emoji} **[{display}]({link})**"
+                else:
+                    line = f"{emoji} **[{display}]({link})** — {task_name}"
+            elif link:
+                line = f"{emoji} **{task_name}** — [link]({link})"
+            else:
+                line = f"{emoji} **{task_name}**"
 
             # Append progress if set
             if progress and progress > 0:
