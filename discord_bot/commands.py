@@ -20,7 +20,8 @@ async def add_task(channel_id: int, link: str, progress: int = 0) -> tuple[bool,
     
     # Use title as task name
     task_name = title or link
-    state.add_task(channel_id, task_name, link=link, display=title, progress=progress)
+    if not state.add_task(channel_id, task_name, link=link, display=title, progress=progress):
+        return False, f"Task **{task_name}** already exists. Use `/update` or `/edit` instead."
     label = state.get_progress_label(channel_id)
     progress_info = f" ({label} {progress})" if progress > 0 else ""
     return True, f"Added task **{task_name}**{progress_info} (not done)."
@@ -61,6 +62,8 @@ async def edit_task(channel_id: int, task_name: str,
     if new_name:
         ok = state.edit_task_name(channel_id, task_name, new_name)
         if not ok:
+            if state.task_exists(channel_id, new_name):
+                return False, f"Task **{new_name}** already exists. Choose a different name."
             return False, f"Task **{task_name}** not found."
         changes.append(f"name → **{new_name}**")
         task_name = new_name  # use new name for subsequent edits
