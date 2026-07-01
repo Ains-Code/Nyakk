@@ -1,7 +1,7 @@
 """
-Builds the tracker embed (the live task list per channel) and can parse an
-existing embed back into task data on bot restart, since Discord is the
-source of truth and nothing is saved to disk.
+Builds the tracker embed shown in each channel.
+If a task has a link, the display title (fetched page title) is shown
+as a clickable hyperlink instead of a raw URL.
 """
 
 import discord
@@ -23,10 +23,19 @@ def build_tracker_embed(channel_name: str, tasks: dict) -> discord.Embed:
         lines = []
         for task_name, info in tasks.items():
             emoji = DONE_EMOJI if info["done"] else NOT_DONE_EMOJI
-            line = f"{emoji} **{task_name}**"
-            if info.get("link"):
-                line += f" — [link]({info['link']})"
+            link = info.get("link")
+            display = info.get("display")
+
+            if link and display:
+                # Show as clickable title: e.g. "🟢 **Read** — [One Piece Ch.1100](url)"
+                line = f"{emoji} **{task_name}** — [{display}]({link})"
+            elif link:
+                # Fallback: no title fetched, show raw link
+                line = f"{emoji} **{task_name}** — [link]({link})"
+            else:
+                line = f"{emoji} **{task_name}**"
             lines.append(line)
+
         embed.description = "\n".join(lines)
 
     now = datetime.now().strftime("%B %d, %Y at %I:%M %p")
@@ -35,8 +44,7 @@ def build_tracker_embed(channel_name: str, tasks: dict) -> discord.Embed:
 
 
 def parse_embed_to_tasks(embed: discord.Embed) -> dict:
-    """Rebuilds task state from an existing tracker embed's description.
-    Used on bot startup to recover state without a database."""
+    """Rebuilds task state from an existing tracker embed on bot restart."""
     tasks = {}
     if not embed.description or "No tasks yet" in embed.description:
         return tasks
@@ -46,14 +54,17 @@ def parse_embed_to_tasks(embed: discord.Embed) -> dict:
         if not line:
             continue
         done = line.startswith(DONE_EMOJI)
-        # strip emoji, then pull task name out of **bold**
         content = line.replace(DONE_EMOJI, "").replace(NOT_DONE_EMOJI, "").strip()
         if "**" not in content:
             continue
         parts = content.split("**")
         task_name = parts[1] if len(parts) > 1 else content
         link = None
+        display = None
         if "](" in content:
-            link = content.split("](")[1].split(")")[0]
-        tasks[task_name] = {"done": done, "link": link}
+            # Extract display text and URL from markdown link
+            bracket_content = content.split("[")[1] if "[" in content else ""
+            display = bracket_content.split("]")[0] if "]" in bracket_content else None
+            link = content.split("](")[1].split(")")[0] if "](" in content else None
+        tasks[task_name] = {"done": done, "link": link, "display": display}
     return tasks
