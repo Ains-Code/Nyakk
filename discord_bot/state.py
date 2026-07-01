@@ -54,14 +54,22 @@ def get_progress_label(channel_id: int) -> str:
     return _state.get(channel_id, {}).get("progress_label", "Progress")
 
 
+def task_exists(channel_id: int, task_name: str) -> bool:
+    tasks = _state.get(channel_id, {}).get("tasks", {})
+    return task_name in tasks
+
+
 def add_task(channel_id: int, task_name: str,
-             link: Optional[str] = None, display: Optional[str] = None, progress: int = 0) -> None:
+             link: Optional[str] = None, display: Optional[str] = None, progress: int = 0) -> bool:
+    if task_exists(channel_id, task_name):
+        return False
     _state[channel_id]["tasks"][task_name] = {
         "done": False,
         "link": link,
         "display": display,
         "progress": progress,
     }
+    return True
 
 
 def remove_task(channel_id: int, task_name: str) -> bool:
@@ -85,7 +93,7 @@ def update_task(channel_id: int, task_name: str,
 
 def edit_task_name(channel_id: int, old_name: str, new_name: str) -> bool:
     tasks = _state.get(channel_id, {}).get("tasks", {})
-    if old_name not in tasks:
+    if old_name not in tasks or (new_name != old_name and new_name in tasks):
         return False
     tasks[new_name] = tasks.pop(old_name)
     return True

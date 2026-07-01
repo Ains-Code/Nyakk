@@ -11,6 +11,7 @@ FB_PAGE_TOKEN = os.getenv("FB_PAGE_TOKEN")
 FB_VERIFY_TOKEN = os.getenv("FB_VERIFY_TOKEN")
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
 WEBHOOK_HOST = os.getenv("WEBHOOK_HOST", "0.0.0.0")
 # Railway (and most PaaS hosts) inject PORT automatically -- fall back to
