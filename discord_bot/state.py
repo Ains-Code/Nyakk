@@ -10,17 +10,11 @@ Structure:
             "task_name": {
                 "done": False,
                 "link": "https://..." or None,
+                "display": "One Piece Chapter 1100" or None,
             },
-            ...
         }
     },
-    ...
 }
-
-This is rebuilt on startup by scanning registered channels and re-parsing
-the existing tracker embed (see discord_bot/embeds.py: parse_embed_to_tasks).
-Nothing here is persisted to disk on purpose — Discord itself is the source
-of truth, per project design.
 """
 
 from typing import Optional
@@ -50,16 +44,23 @@ def get_tracker_message_id(channel_id: int) -> Optional[int]:
     return _state.get(channel_id, {}).get("tracker_message_id")
 
 
-def add_task(channel_id: int, task_name: str, link: Optional[str] = None) -> None:
-    _state[channel_id]["tasks"][task_name] = {"done": False, "link": link}
+def add_task(channel_id: int, task_name: str,
+             link: Optional[str] = None, display: Optional[str] = None) -> None:
+    _state[channel_id]["tasks"][task_name] = {
+        "done": False,
+        "link": link,
+        "display": display,  # fetched page title, shown instead of raw URL
+    }
 
 
-def update_task(channel_id: int, task_name: str, link: Optional[str] = None) -> bool:
+def update_task(channel_id: int, task_name: str,
+                link: Optional[str] = None, display: Optional[str] = None) -> bool:
     tasks = _state.get(channel_id, {}).get("tasks", {})
     if task_name not in tasks:
         return False
     if link is not None:
         tasks[task_name]["link"] = link
+        tasks[task_name]["display"] = display
     return True
 
 
