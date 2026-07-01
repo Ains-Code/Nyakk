@@ -55,13 +55,21 @@ def get_progress_label(channel_id: int) -> str:
 
 
 def add_task(channel_id: int, task_name: str,
-             link: Optional[str] = None, display: Optional[str] = None) -> None:
+             link: Optional[str] = None, display: Optional[str] = None, progress: int = 0) -> None:
     _state[channel_id]["tasks"][task_name] = {
         "done": False,
         "link": link,
         "display": display,
-        "progress": 0,
+        "progress": progress,
     }
+
+
+def remove_task(channel_id: int, task_name: str) -> bool:
+    tasks = _state.get(channel_id, {}).get("tasks", {})
+    if task_name not in tasks:
+        return False
+    del tasks[task_name]
+    return True
 
 
 def update_task(channel_id: int, task_name: str,
