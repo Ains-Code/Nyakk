@@ -3,6 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from discord_bot import state, embeds, commands as cmd
+from ai_chat import chat as ai_chat
 import config
 
 intents = discord.Intents.default()
@@ -187,16 +188,16 @@ async def edit(interaction: discord.Interaction, channel_name: str, task_name: s
         await log_update(f"✏️ {msg} in #{channel_name}")
 
 
-@bot.tree.command(name="update", description="Update an existing task's link")
-@app_commands.describe(channel_name="Tracker channel", task_name="Task to update", link="New link")
+@bot.tree.command(name="update", description="Update an existing task's link and chapter/episode progress")
+@app_commands.describe(channel_name="Tracker channel", task_name="Task to update", link="New link", progress="Chapter or episode number (optional)")
 @app_commands.autocomplete(channel_name=channel_name_autocomplete, task_name=task_name_autocomplete)
-async def update(interaction: discord.Interaction, channel_name: str, task_name: str, link: str = None):
+async def update(interaction: discord.Interaction, channel_name: str, task_name: str, link: str = None, progress: int = None):
     channel_id = state.find_channel_id_by_name(channel_name)
     if not channel_id:
         await interaction.response.send_message("❌ Channel not found.", ephemeral=True)
         return
     await interaction.response.defer()
-    ok, msg = await cmd.update_task(channel_id, task_name, link)
+    ok, msg = await cmd.update_task(channel_id, task_name, link, progress)
     await interaction.followup.send(("✅ " if ok else "❌ ") + msg)
     if ok:
         await refresh_tracker_message(channel_id)
@@ -231,3 +232,35 @@ async def undone(interaction: discord.Interaction, channel_name: str, task_name:
     if ok:
         await refresh_tracker_message(channel_id)
         await log_update(f"⚪ **{task_name}** marked not done in #{channel_name}")
+
+
+@bot.tree.command(name="ask", description="Ask the AI assistant about anime, manga, or this tracker")
+@app_commands.describe(channel_name="Tracker channel to use for context", question="What you want to ask")
+@app_commands.autocomplete(channel_name=channel_name_autocomplete)
+async def ask(interaction: discord.Interaction, channel_name: str, question: str):
+    channel_id = state.find_channel_id_by_name(channel_name)
+    if not channel_id:
+        await interaction.response.send_message("❌ Channel not found.", ephemeral=True)
+        return
+    await interaction.response.defer()
+    reply = await ai_chat.chat(interaction.user.id, channel_id, question)
+    await interaction.followup.send(reply)
+
+
+@bot.tree.command(name="recommend", description="Get AI anime/manga recommendations from a tracker")
+@app_commands.describe(channel_name="Tracker channel to use for recommendations")
+@app_commands.autocomplete(channel_name=channel_name_autocomplete)
+async def recommend(interaction: discord.Interaction, channel_name: str):
+    channel_id = state.find_channel_id_by_name(channel_name)
+    if not channel_id:
+        await interaction.response.send_message("❌ Channel not found.", ephemeral=True)
+        return
+    await interaction.response.defer()
+    reply = await ai_chat.get_recommendations(channel_id)
+    await interaction.followup.send(reply)
+
+
+@bot.tree.command(name="clear_ai", description="Clear your AI conversation history")
+async def clear_ai(interaction: discord.Interaction):
+    ai_chat.clear_conversation(interaction.user.id)
+    await interaction.response.send_message("✅ Cleared your AI conversation history.", ephemeral=True)

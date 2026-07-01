@@ -3,11 +3,23 @@ Builds the tracker embed shown in each channel.
 Shows chapter/episode progress and clickable page titles.
 """
 
-import discord
+import re
 from datetime import datetime
+
+import discord
 
 DONE_EMOJI = "🟢"
 NOT_DONE_EMOJI = "⚪"
+PROGRESS_RE = re.compile(r"`(?P<label>Chapter|Episode|Progress)\s+(?P<value>\d+)`")
+LINK_RE = re.compile(r"\[(?P<title>[^\]]+)\]\((?P<link>[^)]+)\)")
+
+
+def _progress_text(progress_label: str, progress: int) -> str:
+    return f"`{progress_label} {progress}`" if progress and progress > 0 else ""
+
+
+def _display_text(task_name: str, display: str | None) -> str:
+    return display or task_name
 
 
 def build_tracker_embed(channel_name: str, tasks: dict, progress_label: str = "Progress") -> discord.Embed:
@@ -23,23 +35,22 @@ def build_tracker_embed(channel_name: str, tasks: dict, progress_label: str = "P
         for task_name, info in tasks.items():
             emoji = DONE_EMOJI if info["done"] else NOT_DONE_EMOJI
             link = info.get("link")
-            display = info.get("display")
+            display = _display_text(task_name, info.get("display"))
             progress = info.get("progress", 0)
+            progress_prefix = _progress_text(progress_label, progress)
 
-            # Build task line - display title first, then task name as subtitle
-            if link and display:
-                if display == task_name:
-                    line = f"{emoji} **[{display}]({link})**"
-                else:
-                    line = f"{emoji} **[{display}]({link})** — {task_name}"
-            elif link:
-                line = f"{emoji} **{task_name}** — [link]({link})"
+            # Requested display order: [PROGRESS] - [PAGE_TITLE]. Keep the page title
+            # clickable when a source link is available, and avoid repeating the same
+            # long title as both display text and subtitle.
+            if link:
+                title_text = f"**[{display}]({link})**"
             else:
-                line = f"{emoji} **{task_name}**"
+                title_text = f"**{display}**"
 
-            # Append progress if set
-            if progress and progress > 0:
-                line += f" `{progress_label} {progress}`"
+            if progress_prefix:
+                line = f"{emoji} {progress_prefix} - {title_text}"
+            else:
+                line = f"{emoji} {title_text}"
 
             lines.append(line)
 
@@ -56,9 +67,6 @@ def parse_embed_to_tasks(embed: discord.Embed) -> dict:
     if not embed.description or "No tasks yet" in embed.description:
         return tasks
 
-    import re
-    PROGRESS_RE = re.compile(r"`(?:Chapter|Episode|Progress)\s+(\d+)`")
-
     for line in embed.description.split("\n"):
         line = line.strip()
         if not line:
@@ -68,31 +76,33 @@ def parse_embed_to_tasks(embed: discord.Embed) -> dict:
         if "**" not in content:
             continue
 
-        # Extract display name (between ** **)
-        parts = content.split("**")
-        display = parts[1] if len(parts) > 1 else None
-        
-        # Extract task name (after "—" or the full display name if no "—")
-        if " — " in content:
-            # Format: **Display** — task_name `Progress X`
-            after_display = content.split(" — ", 1)[1]
-            # Remove progress if present
-            task_name = after_display.split(" `")[0].strip()
-        else:
-            # Format: **task_name** `Progress X` (no display)
-            task_name = display
-
-        link = None
         progress = 0
-
-        if "](" in content:
-            bracket_content = content.split("[")[1] if "[" in content else ""
-            link_display = bracket_content.split("]")[0] if "]" in bracket_content else None
-            link = content.split("](")[1].split(")")[0] if "](" in content else None
-
         match = PROGRESS_RE.search(content)
         if match:
-            progress = int(match.group(1))
+            progress = int(match.group("value"))
+            content = PROGRESS_RE.sub("", content, count=1).strip()
+            if content.startswith("-"):
+                content = content[1:].strip()
+
+        parts = content.split("**")
+        display_markup = parts[1] if len(parts) > 1 else None
+        if not display_markup:
+            continue
+
+        link = None
+        display = display_markup
+        link_match = LINK_RE.search(display_markup)
+        if link_match:
+            display = link_match.group("title")
+            link = link_match.group("link")
+
+        # Backward compatibility with the old format:
+        # **Display** — task_name `Progress X`
+        if " — " in content:
+            after_display = content.split(" — ", 1)[1]
+            task_name = PROGRESS_RE.sub("", after_display).strip()
+        else:
+            task_name = display
 
         tasks[task_name] = {"done": done, "link": link, "display": display, "progress": progress}
     return tasks

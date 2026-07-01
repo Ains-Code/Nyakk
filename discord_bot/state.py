@@ -54,66 +54,95 @@ def get_progress_label(channel_id: int) -> str:
     return _state.get(channel_id, {}).get("progress_label", "Progress")
 
 
+def task_exists(channel_id: int, task_name: str) -> bool:
+    return find_task_name(channel_id, task_name) is not None
+
+
 def add_task(channel_id: int, task_name: str,
-             link: Optional[str] = None, display: Optional[str] = None, progress: int = 0) -> None:
+             link: Optional[str] = None, display: Optional[str] = None, progress: int = 0) -> bool:
+    if task_exists(channel_id, task_name):
+        return False
     _state[channel_id]["tasks"][task_name] = {
         "done": False,
         "link": link,
         "display": display,
         "progress": progress,
     }
+    return True
+
+
+def find_task_name(channel_id: int, query: str) -> Optional[str]:
+    tasks = _state.get(channel_id, {}).get("tasks", {})
+    if query in tasks:
+        return query
+
+    normalized_query = query.casefold().strip()
+    for task_name, info in tasks.items():
+        if task_name.casefold().strip() == normalized_query:
+            return task_name
+        display = info.get("display")
+        if display and display.casefold().strip() == normalized_query:
+            return task_name
+    return None
 
 
 def remove_task(channel_id: int, task_name: str) -> bool:
     tasks = _state.get(channel_id, {}).get("tasks", {})
-    if task_name not in tasks:
+    matched = find_task_name(channel_id, task_name)
+    if matched is None:
         return False
-    del tasks[task_name]
+    del tasks[matched]
     return True
 
 
 def update_task(channel_id: int, task_name: str,
                 link: Optional[str] = None, display: Optional[str] = None) -> bool:
     tasks = _state.get(channel_id, {}).get("tasks", {})
-    if task_name not in tasks:
+    matched = find_task_name(channel_id, task_name)
+    if matched is None:
         return False
     if link is not None:
-        tasks[task_name]["link"] = link
-        tasks[task_name]["display"] = display
+        tasks[matched]["link"] = link
+        tasks[matched]["display"] = display
     return True
 
 
 def edit_task_name(channel_id: int, old_name: str, new_name: str) -> bool:
     tasks = _state.get(channel_id, {}).get("tasks", {})
-    if old_name not in tasks:
+    matched = find_task_name(channel_id, old_name)
+    duplicate = find_task_name(channel_id, new_name)
+    if matched is None or (duplicate is not None and duplicate != matched):
         return False
-    tasks[new_name] = tasks.pop(old_name)
+    tasks[new_name] = tasks.pop(matched)
     return True
 
 
 def edit_task_link(channel_id: int, task_name: str,
                    link: str, display: Optional[str] = None) -> bool:
     tasks = _state.get(channel_id, {}).get("tasks", {})
-    if task_name not in tasks:
+    matched = find_task_name(channel_id, task_name)
+    if matched is None:
         return False
-    tasks[task_name]["link"] = link
-    tasks[task_name]["display"] = display
+    tasks[matched]["link"] = link
+    tasks[matched]["display"] = display
     return True
 
 
 def edit_task_progress(channel_id: int, task_name: str, progress: int) -> bool:
     tasks = _state.get(channel_id, {}).get("tasks", {})
-    if task_name not in tasks:
+    matched = find_task_name(channel_id, task_name)
+    if matched is None:
         return False
-    tasks[task_name]["progress"] = progress
+    tasks[matched]["progress"] = progress
     return True
 
 
 def set_task_done(channel_id: int, task_name: str, done: bool) -> bool:
     tasks = _state.get(channel_id, {}).get("tasks", {})
-    if task_name not in tasks:
+    matched = find_task_name(channel_id, task_name)
+    if matched is None:
         return False
-    tasks[task_name]["done"] = done
+    tasks[matched]["done"] = done
     return True
 
 

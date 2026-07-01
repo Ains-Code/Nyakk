@@ -8,13 +8,14 @@ slash-style commands there relays the same actions into Discord.
 
 - `/add_channel <name>` (Discord only) creates a new text channel and
   registers it as a tracker. Posts an empty tracker embed.
-- `/add <channel> <task> [link]` adds a task, default **not done**.
-- `/update <channel> <task> [link]` updates a task's link/details.
+- `/add <channel> <link> [progress]` adds a task from a link, default **not done**. Duplicate task names are rejected instead of overwritten.
+- `/update <channel> <task> [link] [progress]` updates a task's link/details/progress. Messenger also accepts `/update <channel> <link> [progress]` and infers the task from the page title.
 - `/done <channel> <task>` / `/undone <channel> <task>` toggle completion.
+- `/ask <channel> <question>` and `/recommend <channel>` use AI with tracker context.
 - Every successful change **edits the same tracker message in place**
   (never spams new messages) and logs a line to the `UPDATED` channel.
 - From Messenger, type the same commands as plain text, e.g.:
-  `/add reading-manhwa chapter-12 https://example.com/ch12`
+  `/add reading-manhwa https://example.com/ch12 12`
   The bot replies in Messenger and applies the same change to Discord.
 
 State is kept in memory only — no database. Discord's existing messages
@@ -27,6 +28,7 @@ restarts, since rebuilding from message history isn't fully implemented yet).
 2. Copy `.env.example` to `.env` and fill in:
    - `DISCORD_TOKEN`, `DISCORD_GUILD_ID`, `UPDATED_CHANNEL_ID`
    - `FB_PAGE_TOKEN`, `FB_VERIFY_TOKEN`
+   - `OPENAI_API_KEY` for AI chat/recommendations; optionally `OPENAI_MODEL`
 3. In the Discord Developer Portal, enable the bot's `applications.commands`
    scope and invite it to your server with channel-management permissions.
 4. In the Facebook App dashboard, set your webhook callback URL to

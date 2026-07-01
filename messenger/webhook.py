@@ -19,6 +19,7 @@ from shared.security import (
 )
 from messenger.client import send_message
 from discord_bot import state, commands as cmd
+from ai_chat import chat as ai_chat
 from discord_bot.bot import refresh_tracker_message, log_update
 
 app = Quart(__name__)
@@ -80,10 +81,12 @@ async def handle_text_command(sender: str, text: str):
             sender,
             "Hindi ko naintindihan yan. Subukan mo:\n"
             "/add_channel <name>\n"
-            "/add <channel> <task> [link]\n"
-            "/update <channel> <task> [link]\n"
-            "/done <channel> <task>\n"
-            "/undone <channel> <task>",
+            "/add <channel> <link> [progress]\n"
+            "/update <channel> \"<task>\" [link] [progress]\n"
+            "/done <channel> \"<task>\"\n"
+            "/undone <channel> \"<task>\"\n"
+            "/recommend <channel>\n"
+            "/ask <channel> <question>",
         )
         return
 
@@ -101,18 +104,23 @@ async def handle_text_command(sender: str, text: str):
         return
 
     if parsed.command == "add":
-        ok, reply = cmd.add_task(channel_id, parsed.task_name, parsed.link)
+        ok, reply = await cmd.add_task(channel_id, parsed.link, parsed.progress)
     elif parsed.command == "update":
-        ok, reply = cmd.update_task(channel_id, parsed.task_name, parsed.link)
+        ok, reply = await cmd.update_task(channel_id, parsed.task_name, parsed.link, parsed.progress)
     elif parsed.command == "done":
-        ok, reply = cmd.mark_done(channel_id, parsed.task_name, True)
+        ok, reply = await cmd.mark_done(channel_id, parsed.task_name, True)
     elif parsed.command == "undone":
-        ok, reply = cmd.mark_done(channel_id, parsed.task_name, False)
+        ok, reply = await cmd.mark_done(channel_id, parsed.task_name, False)
+    elif parsed.command == "recommend":
+        ok, reply = True, await ai_chat.get_recommendations(channel_id)
+    elif parsed.command == "ask":
+        ok, reply = True, await ai_chat.chat(int(sender) if sender.isdigit() else hash(sender), channel_id, parsed.message or "")
     else:
         ok, reply = False, "Unknown command."
 
     await send_message(sender, ("✅ " if ok else "❌ ") + reply)
 
     if ok:
-        await refresh_tracker_message(channel_id)
-        await log_update(f"📩 (via WhatsApp) {reply}")
+        if parsed.command not in ("ask", "recommend"):
+            await refresh_tracker_message(channel_id)
+            await log_update(f"📩 (via WhatsApp) {reply}")

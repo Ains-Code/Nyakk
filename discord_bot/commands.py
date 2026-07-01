@@ -4,40 +4,75 @@ call into these functions.
 """
 
 from typing import Optional
+
 from discord_bot import state
-from shared.link_title import fetch_title
+from shared.link_title import clean_page_title, extract_progress, fetch_title
+
+
+def _fallback_title(link: str | None) -> str | None:
+    return clean_page_title(link, link) if link else None
+
+
+async def _title_and_progress(link: str | None, progress: int = 0) -> tuple[str | None, int]:
+    if not link:
+        return None, progress
+
+    title = await fetch_title(link)
+    if not title:
+        title = _fallback_title(link) or link
+
+    if progress <= 0:
+        progress = extract_progress(title, link)
+
+    return title, progress
 
 
 async def add_task(channel_id: int, link: str, progress: int = 0) -> tuple[bool, str]:
     if not state.is_registered(channel_id):
         return False, "That channel isn't registered as a tracker yet."
-    
-    title = None
-    if link:
-        title = await fetch_title(link)
-        if not title:
-            title = link
-    
-    # Use title as task name
+
+    title, progress = await _title_and_progress(link, progress)
     task_name = title or link
-    state.add_task(channel_id, task_name, link=link, display=title, progress=progress)
+
+    if not state.add_task(channel_id, task_name, link=link, display=title, progress=progress):
+        return False, f"Task **{task_name}** already exists. Use `/update` or `/edit` instead."
+
     label = state.get_progress_label(channel_id)
     progress_info = f" ({label} {progress})" if progress > 0 else ""
-    return True, f"Added task **{task_name}**{progress_info} (not done)."
+    return True, f"Added **{task_name}**{progress_info}."
 
 
-async def update_task(channel_id: int, task_name: str, link: Optional[str] = None) -> tuple[bool, str]:
+async def update_task(channel_id: int, task_name: str, link: Optional[str] = None,
+                      progress: Optional[int] = None) -> tuple[bool, str]:
     if not state.is_registered(channel_id):
         return False, "That channel isn't registered as a tracker yet."
+
     title = None
+    detected_progress = progress or 0
     if link:
-        title = await fetch_title(link)
-        if not title:
-            title = link
-    ok = state.update_task(channel_id, task_name, link=link, display=title)
-    if not ok:
+        title, detected_progress = await _title_and_progress(link, detected_progress)
+
+    matched_task = state.find_task_name(channel_id, task_name)
+    if matched_task is None and title:
+        matched_task = state.find_task_name(channel_id, title)
+
+    if matched_task is None:
         return False, f"Task **{task_name}** not found."
-    return True, f"Updated task **{task_name}**."
+
+    changes = []
+    if link is not None:
+        state.update_task(channel_id, matched_task, link=link, display=title)
+        changes.append(f"link/title → **{title or link}**")
+
+    if detected_progress > 0:
+        state.edit_task_progress(channel_id, matched_task, detected_progress)
+        label = state.get_progress_label(channel_id)
+        changes.append(f"{label} → **{detected_progress}**")
+
+    if not changes:
+        return False, "Nothing to update — provide a link or progress."
+
+    return True, f"Updated **{matched_task}**: {', '.join(changes)}."
 
 
 async def remove_task(channel_id: int, task_name: str) -> tuple[bool, str]:
@@ -61,16 +96,20 @@ async def edit_task(channel_id: int, task_name: str,
     if new_name:
         ok = state.edit_task_name(channel_id, task_name, new_name)
         if not ok:
+            if state.task_exists(channel_id, new_name):
+                return False, f"Task **{new_name}** already exists. Choose a different name."
             return False, f"Task **{task_name}** not found."
         changes.append(f"name → **{new_name}**")
         task_name = new_name  # use new name for subsequent edits
 
     if new_link:
-        title = await fetch_title(new_link) or new_link
+        title, detected_progress = await _title_and_progress(new_link, new_progress or 0)
         ok = state.edit_task_link(channel_id, task_name, new_link, title)
         if not ok:
             return False, f"Task **{task_name}** not found."
-        changes.append(f"link → [{title}]({new_link})")
+        changes.append(f"link/title → **{title or new_link}**")
+        if new_progress is None and detected_progress > 0:
+            new_progress = detected_progress
 
     if new_progress is not None:
         ok = state.edit_task_progress(channel_id, task_name, new_progress)
