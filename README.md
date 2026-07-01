@@ -9,7 +9,7 @@ slash-style commands there relays the same actions into Discord.
 - `/add_channel <name>` (Discord only) creates a new text channel and
   registers it as a tracker. Posts an empty tracker embed.
 - `/add <channel> <link> [progress]` adds a task from a link, default **not done**. Duplicate task names are rejected instead of overwritten.
-- `/update <channel> <task> [link]` updates a task's link/details.
+- `/update <channel> <task> [link] [progress]` updates a task's link/details/progress. Messenger also accepts `/update <channel> <link> [progress]` and infers the task from the page title.
 - `/done <channel> <task>` / `/undone <channel> <task>` toggle completion.
 - `/ask <channel> <question>` and `/recommend <channel>` use AI with tracker context.
 - Every successful change **edits the same tracker message in place**

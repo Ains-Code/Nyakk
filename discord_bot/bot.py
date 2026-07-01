@@ -188,16 +188,16 @@ async def edit(interaction: discord.Interaction, channel_name: str, task_name: s
         await log_update(f"✏️ {msg} in #{channel_name}")
 
 
-@bot.tree.command(name="update", description="Update an existing task's link")
-@app_commands.describe(channel_name="Tracker channel", task_name="Task to update", link="New link")
+@bot.tree.command(name="update", description="Update an existing task's link and chapter/episode progress")
+@app_commands.describe(channel_name="Tracker channel", task_name="Task to update", link="New link", progress="Chapter or episode number (optional)")
 @app_commands.autocomplete(channel_name=channel_name_autocomplete, task_name=task_name_autocomplete)
-async def update(interaction: discord.Interaction, channel_name: str, task_name: str, link: str = None):
+async def update(interaction: discord.Interaction, channel_name: str, task_name: str, link: str = None, progress: int = None):
     channel_id = state.find_channel_id_by_name(channel_name)
     if not channel_id:
         await interaction.response.send_message("❌ Channel not found.", ephemeral=True)
         return
     await interaction.response.defer()
-    ok, msg = await cmd.update_task(channel_id, task_name, link)
+    ok, msg = await cmd.update_task(channel_id, task_name, link, progress)
     await interaction.followup.send(("✅ " if ok else "❌ ") + msg)
     if ok:
         await refresh_tracker_message(channel_id)

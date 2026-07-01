@@ -14,6 +14,7 @@ no concept of "current channel" the way Discord slash commands do):
     /ask <channel_name> <question>
 """
 
+import shlex
 from typing import Optional
 
 
@@ -34,7 +35,10 @@ def parse(text: str) -> Optional[ParsedCommand]:
     if not text.startswith("/"):
         return None
 
-    parts = text[1:].split()
+    try:
+        parts = shlex.split(text[1:])
+    except ValueError:
+        return None
     if not parts:
         return None
 
@@ -57,9 +61,28 @@ def parse(text: str) -> Optional[ParsedCommand]:
     if command == "update":
         if len(args) < 2:
             return None
-        channel_name, task_name = args[0], args[1]
+        progress = 0
+        if len(args) > 2 and args[2].isdigit():
+            progress = int(args[2])
+        return ParsedCommand(command, channel_name=args[0], link=args[1], progress=progress)
+
+    if command == "update":
+        if len(args) < 2:
+            return None
+        channel_name = args[0]
+        progress = 0
+        if args[-1].isdigit():
+            progress = int(args[-1])
+            args = args[:-1]
+
+        # Convenience form: /update <channel> <link> [progress]. The command
+        # handler will infer the task from the cleaned page title.
+        if args[1].startswith(("http://", "https://")):
+            return ParsedCommand(command, channel_name, task_name=args[1], link=args[1], progress=progress)
+
+        task_name = args[1]
         link = args[2] if len(args) > 2 else None
-        return ParsedCommand(command, channel_name, task_name, link)
+        return ParsedCommand(command, channel_name, task_name, link, progress=progress)
 
     if command in ("done", "undone"):
         if len(args) < 2:
