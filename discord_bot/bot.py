@@ -110,7 +110,11 @@ async def rebuild_state_from_discord():
 async def on_ready():
     print(f"[discord] Logged in as {bot.user}")
     await rebuild_state_from_discord()
-    await bot.tree.sync()
+    try:
+        synced = await bot.tree.sync()
+        print(f"[discord] Synced {len(synced)} command(s)")
+    except Exception as e:
+        print(f"[discord] Failed to sync commands: {e}")
     print("[discord] Slash commands synced.")
 
 
@@ -129,20 +133,20 @@ async def add_channel(interaction: discord.Interaction, task_category_name: str)
     await log_update(f"📁 New tracker channel: **{task_category_name}**")
 
 
-@bot.tree.command(name="add", description="Add a new task with chapter/episode number to a tracker channel")
-@app_commands.describe(channel_name="Tracker channel", task="Task name", progress="Chapter, episode, or amount number", link="Optional link")
+@bot.tree.command(name="add", description="Add a new task with link and chapter/episode number")
+@app_commands.describe(channel_name="Tracker channel", link="Link to page/chapter/episode", progress="Chapter, episode, or amount number (optional)")
 @app_commands.autocomplete(channel_name=channel_name_autocomplete)
-async def add(interaction: discord.Interaction, channel_name: str, task: str, progress: int = 0, link: str = None):
+async def add(interaction: discord.Interaction, channel_name: str, link: str, progress: int = 0):
     channel_id = state.find_channel_id_by_name(channel_name)
     if not channel_id:
         await interaction.response.send_message("❌ Channel not found.", ephemeral=True)
         return
     await interaction.response.defer()
-    ok, msg = await cmd.add_task(channel_id, task, progress, link)
+    ok, msg = await cmd.add_task(channel_id, link, progress)
     await interaction.followup.send(("✅ " if ok else "❌ ") + msg)
     if ok:
         await refresh_tracker_message(channel_id)
-        await log_update(f"➕ **{task}** added to #{channel_name}")
+        await log_update(f"➕ Added to #{channel_name}")
 
 
 @bot.tree.command(name="remove", description="Remove a task from a tracker channel")
