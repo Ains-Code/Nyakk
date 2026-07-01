@@ -26,9 +26,9 @@ def build_tracker_embed(channel_name: str, tasks: dict, progress_label: str = "P
             display = info.get("display")
             progress = info.get("progress", 0)
 
-            # Build task line
+            # Build task line - display title first, then task name as subtitle
             if link and display:
-                line = f"{emoji} **{task_name}** — [{display}]({link})"
+                line = f"{emoji} **{display}** — {task_name}"
             elif link:
                 line = f"{emoji} **{task_name}** — [link]({link})"
             else:
