@@ -65,16 +65,26 @@ def parse_embed_to_tasks(embed: discord.Embed) -> dict:
         if "**" not in content:
             continue
 
+        # Extract display name (between ** **)
         parts = content.split("**")
-        task_name = parts[1] if len(parts) > 1 else content
+        display = parts[1] if len(parts) > 1 else None
+        
+        # Extract task name (after "—" or the full display name if no "—")
+        if " — " in content:
+            # Format: **Display** — task_name `Progress X`
+            after_display = content.split(" — ", 1)[1]
+            # Remove progress if present
+            task_name = after_display.split(" `")[0].strip()
+        else:
+            # Format: **task_name** `Progress X` (no display)
+            task_name = display
 
         link = None
-        display = None
         progress = 0
 
         if "](" in content:
             bracket_content = content.split("[")[1] if "[" in content else ""
-            display = bracket_content.split("]")[0] if "]" in bracket_content else None
+            link_display = bracket_content.split("]")[0] if "]" in bracket_content else None
             link = content.split("](")[1].split(")")[0] if "](" in content else None
 
         match = PROGRESS_RE.search(content)
