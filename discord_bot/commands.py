@@ -8,7 +8,7 @@ from discord_bot import state
 from shared.link_title import fetch_title
 
 
-async def add_task(channel_id: int, task_name: str, link: Optional[str] = None) -> tuple[bool, str]:
+async def add_task(channel_id: int, task_name: str, progress: int = 0, link: Optional[str] = None) -> tuple[bool, str]:
     if not state.is_registered(channel_id):
         return False, "That channel isn't registered as a tracker yet."
     title = None
@@ -16,9 +16,11 @@ async def add_task(channel_id: int, task_name: str, link: Optional[str] = None) 
         title = await fetch_title(link)
         if not title:
             title = link
-    state.add_task(channel_id, task_name, link=link, display=title)
+    state.add_task(channel_id, task_name, link=link, display=title, progress=progress)
+    label = state.get_progress_label(channel_id)
     display_info = f' — "{title}"' if title and title != link else ""
-    return True, f"Added task **{task_name}**{display_info} (not done)."
+    progress_info = f" ({label} {progress})" if progress > 0 else ""
+    return True, f"Added task **{task_name}**{display_info}{progress_info} (not done)."
 
 
 async def update_task(channel_id: int, task_name: str, link: Optional[str] = None) -> tuple[bool, str]:
@@ -33,6 +35,15 @@ async def update_task(channel_id: int, task_name: str, link: Optional[str] = Non
     if not ok:
         return False, f"Task **{task_name}** not found."
     return True, f"Updated task **{task_name}**."
+
+
+async def remove_task(channel_id: int, task_name: str) -> tuple[bool, str]:
+    if not state.is_registered(channel_id):
+        return False, "That channel isn't registered as a tracker yet."
+    ok = state.remove_task(channel_id, task_name)
+    if not ok:
+        return False, f"Task **{task_name}** not found."
+    return True, f"Removed task **{task_name}**."
 
 
 async def edit_task(channel_id: int, task_name: str,
